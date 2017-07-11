@@ -2,6 +2,7 @@
 import logging
 import os
 import re
+import shlex
 import time
 
 from collections import namedtuple
@@ -10,6 +11,7 @@ from threading import Thread, Lock
 
 import openerp.addons.hw_proxy.controllers.main as hw_proxy
 from openerp import http
+from openerp.tools import config
 
 _logger = logging.getLogger(__name__)
 
@@ -209,18 +211,21 @@ class Scale(Thread):
                     self.set_status('disconnected', 'No RS-232 device found')
                     return None
 
-                devices = [device for device in listdir(self.input_dir)]
+                devices = [self.input_dir + device for device in listdir(self.input_dir)]
 
+                ignored_devices = filter(os.path.exists, shlex.split(config.get('scale_ignore_devices', '')))
                 for device in devices:
                     driver = hw_proxy.rs232_devices.get(device)
                     if driver and driver != DRIVER_NAME:
                         # belongs to another driver
                         _logger.info('Ignoring %s, belongs to %s', device, driver)
                         continue
-                    path = self.input_dir + device
+                    if any(os.path.samefile(device, d) for d in ignored_devices):
+                        _logger.info("Ignoring %s, because it's used by another module", device)
+                        continue
                     for protocol in SCALE_PROTOCOLS:
-                        _logger.info('Probing %s with protocol %s', path, protocol)
-                        connection = serial.Serial(path,
+                        _logger.info('Probing %s with protocol %s', device, protocol)
+                        connection = serial.Serial(device,
                                                    baudrate=protocol.baudrate,
                                                    bytesize=protocol.bytesize,
                                                    stopbits=protocol.stopbits,
@@ -232,10 +237,10 @@ class Scale(Thread):
                         answer = self._get_raw_response(connection)
                         weight, weight_info, status = self._parse_weight_answer(protocol, answer)
                         if status:
-                            _logger.info('Probing %s: no valid answer to protocol %s', path, protocol.name)
+                            _logger.info('Probing %s: no valid answer to protocol %s', device, protocol.name)
                         else:
-                            _logger.info('Probing %s: answer looks ok for protocol %s', path, protocol.name)
-                            self.path_to_scale = path
+                            _logger.info('Probing %s: answer looks ok for protocol %s', device, protocol.name)
+                            self.path_to_scale = device
                             self.protocol = protocol
                             self.set_status(
                                 'connected',
@@ -243,7 +248,7 @@ class Scale(Thread):
                             )
                             connection.timeout = protocol.timeout
                             connection.writeTimeout = protocol.writeTimeout
-                            hw_proxy.rs232_devices[path] = DRIVER_NAME
+                            hw_proxy.rs232_devices[device] = DRIVER_NAME
                             return connection
 
                 self.set_status('disconnected', 'No supported RS-232 scale found')
