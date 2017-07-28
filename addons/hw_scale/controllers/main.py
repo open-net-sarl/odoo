@@ -82,39 +82,9 @@ Toledo8217Protocol = ScaleProtocol(
     autoResetWeight=False,
 )
 
-# The ADAM scales have their own RS232 protocol, usually documented in the scale's manual
-#   e.g at https://www.adamequipment.com/media/docs/Print%20Publications/Manuals/PDF/AZEXTRA/AZEXTRA-UM.pdf
-#          https://www.manualslib.com/manual/879782/Adam-Equipment-Cbd-4.html?page=32#manual
-# Only the baudrate and label format seem to be configurable in the AZExtra series.
-ADAMEquipmentProtocol = ScaleProtocol(
-    name='Adam Equipment',
-    baudrate=4800,
-    bytesize=serial.EIGHTBITS,
-    stopbits=serial.STOPBITS_ONE,
-    parity=serial.PARITY_NONE,
-    timeout=0.2,
-    writeTimeout=0.2,
-    weightRegexp=r"\s*([0-9.]+)kg", # LABEL format 3 + KG in the scale settings, but Label 1/2 should work
-    statusRegexp=None,
-    statusParse=None,
-    commandTerminator="\r\n",
-    commandDelay=0.2,
-    weightDelay=0.5,
-    newWeightDelay=5,  # AZExtra beeps every time you ask for a weight that was previously returned!
-                       # Adding an extra delay gives the operator a chance to remove the products
-                       # before the scale starts beeping. Could not find a way to disable the beeps.
-    weightCommand='P',
-    zeroCommand='Z',
-    tareCommand='T',
-    clearCommand=None, # No clear command -> Tare again
-    emptyAnswerValid=True, # AZExtra does not answer unless a new non-zero weight has been detected
-    autoResetWeight=True,  # AZExtra will not return 0 after removing products
-)
-
 
 SCALE_PROTOCOLS = (
     Toledo8217Protocol,
-    ADAMEquipmentProtocol, # must be listed last, as it supports no probing!
 )
 
 class Scale(Thread):
