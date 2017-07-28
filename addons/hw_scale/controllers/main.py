@@ -207,11 +207,11 @@ class Scale(Thread):
 
         with hw_proxy.rs232_lock:
             try:
-                if not os.path.exists(self.input_dir):
-                    self.set_status('disconnected', 'No RS-232 device found')
-                    return None
-
-                devices = [self.input_dir + device for device in listdir(self.input_dir)]
+                devices = []
+                if os.path.exists(self.input_dir):
+                    devices.extend(self.input_dir + device for device in listdir(self.input_dir))
+                if os.path.exists('/dev/serial0'):  # GPIO interface
+                    devices.append('/dev/serial0')
 
                 ignored_devices = filter(os.path.exists, shlex.split(config.get('scale_ignore_devices', '')))
                 for device in devices:
